@@ -19,17 +19,15 @@
         <swid:Tag Regid="!(loc.Regid)" InstallPath="[ProgramFilesFolder]WiX Toolset v$(var.WixMajorMinor)" />
         <Update Location='!(loc.UpdateUrl)' />
 
-        <BootstrapperApplicationRef Id='ManagedBootstrapperApplicationHost'>
+        <BootstrapperApplicationRef Id='ManagedBootstrapperApplicationHost' bal:UseUILanguages='yes'>
           <Payload Name='BootstrapperCore.config' SourceFile='WixBA.BootstrapperCore.config' />
 
           <Payload SourceFile='WixBA.dll' />
           <Payload SourceFile='..\..\..\License.txt' />
         </BootstrapperApplicationRef>
 
-        <util:RegistrySearchRef Id="NETFRAMEWORK35_SP_LEVEL" />
-
         <Chain>
-            <PackageGroupRef Id='NetFx40Web' />
+            <PackageGroupRef Id='NetFx462Redist' />
             <PackageGroupRef Id='WixPackages' />
         </Chain>
     </Bundle>

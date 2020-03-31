@@ -1004,6 +1004,22 @@ public: // IBootstrapperApplication
         return __super::OnExecuteFilesInUse(wzPackageId, cFiles, rgwzFiles);
     }
 
+
+protected: // internals
+    //
+    // FindLocFile - locates the desired localization file
+    //
+    HRESULT FindLocFile(
+        __in_z LPCWSTR wzBasePath,
+        __in_z LPCWSTR wzLocFileName,
+        __in_z_opt LPCWSTR wzLanguage,
+        __inout LPWSTR* psczPath
+        )
+    {
+        return LocProbeForFileEx(wzBasePath, wzLocFileName, wzLanguage, psczPath, m_fUseUILanguages);
+    }
+
+
 private: // privates
     //
     // UiThreadProc - entrypoint for UI thread.
@@ -1075,6 +1091,7 @@ private: // privates
     LExit:
         // destroy main window
         pThis->DestroyMainWindow();
+        pThis->UninitializeTaskbarButton();
 
         // initiate engine shutdown
         DWORD dwQuit = HRESULT_CODE(hr);
@@ -1112,6 +1129,9 @@ private: // privates
 
         hr = BalManifestLoad(m_hModule, &pixdManifest);
         BalExitOnFailure(hr, "Failed to load bootstrapper application manifest.");
+
+        hr = ParseOptionVariablesFromXml(pixdManifest);
+        BalExitOnFailure(hr, "Failed to process bootstrapper option variables.");
 
         hr = ParseOverridableVariablesFromXml(pixdManifest);
         BalExitOnFailure(hr, "Failed to read overridable variables.");
@@ -1253,7 +1273,7 @@ private: // privates
         LPCWSTR wzLocFileName = m_fPrereq ? L"mbapreq.wxl" : L"thm.wxl";
 
         // Find and load .wxl file.
-        hr = LocProbeForFile(wzModulePath, wzLocFileName, wzLanguage, &sczLocPath);
+        hr = FindLocFile(wzModulePath, wzLocFileName, wzLanguage, &sczLocPath);
         BalExitOnFailure2(hr, "Failed to probe for loc file: %ls in path: %ls", wzLocFileName, wzModulePath);
 
         hr = LocLoadFromFile(sczLocPath, &m_pWixLoc);
@@ -1333,7 +1353,7 @@ private: // privates
         LPCWSTR wzThemeFileName = m_fPrereq ? L"mbapreq.thm" : L"thm.xml";
         LPWSTR sczCaption = NULL;
 
-        hr = LocProbeForFile(wzModulePath, wzThemeFileName, wzLanguage, &sczThemePath);
+        hr = FindLocFile(wzModulePath, wzThemeFileName, wzLanguage, &sczThemePath);
         BalExitOnFailure2(hr, "Failed to probe for theme file: %ls in path: %ls", wzThemeFileName, wzModulePath);
 
         hr = ThemeLoadFromFile(sczThemePath, &m_pTheme);
@@ -1355,6 +1375,84 @@ private: // privates
         ReleaseStr(sczCaption);
         ReleaseStr(sczThemePath);
 
+        return hr;
+    }
+
+
+    HRESULT ParseOptionVariablesFromXml(
+        __in IXMLDOMDocument* pixdManifest
+        )
+    {
+        HRESULT hr = S_OK;
+        IXMLDOMNode* pNode = NULL;
+        IXMLDOMNodeList* pNodes = NULL;
+        DWORD cNodes = 0;
+        LPWSTR sczName = NULL;
+        LPWSTR sczValue = NULL;
+
+        hr = XmlSelectNodes(pixdManifest, L"/BootstrapperApplicationData/WixStdbaSettings ", &pNodes);
+        if (S_FALSE == hr)
+        {
+            ExitFunction1(hr = S_OK);
+        }
+        ExitOnFailure(hr, "Failed to select option variable nodes.");
+
+        hr = pNodes->get_length((long*)&cNodes);
+        ExitOnFailure(hr, "Failed to get option variable node count.");
+
+        if (cNodes)
+        {
+            for (DWORD i = 0; i < cNodes; ++i)
+            {
+                hr = XmlNextElement(pNodes, &pNode, NULL);
+                ExitOnFailure(hr, "Failed to get next node.");
+
+                // @Value
+                hr = XmlGetAttributeEx(pNode, L"Value", &sczValue);
+                if (E_NOTFOUND == hr)
+                {
+                    ReleaseNullStr(sczValue);
+                }
+                else
+                {
+                    ExitOnFailure(hr, "Failed to get @Value.");
+                }
+
+                // @Name
+                hr = XmlGetAttributeEx(pNode, L"Name", &sczName);
+                ExitOnFailure(hr, "Failed to get @Name.");
+
+                if (0 == ::wcscmp(sczName, L"UseUILanguages"))
+                {
+                    if (sczValue && *sczValue)
+                    {
+                        USHORT us;
+                        hr = StrStringToUInt16(sczValue, 0, &us);
+                        ExitOnFailure(hr, "Failed to parse UseUILanguages.");
+
+                        m_fUseUILanguages = us ? TRUE : FALSE;
+                    }
+                }
+                // ***** extension point for new variables *****
+                // else if (0 == ::wcscmp(sczName, L""))
+                // {
+                // }
+                else
+                {
+                    hr = E_NOTFOUND;
+                    ExitOnFailure1(hr, "Failed to recognize option variable \"%ls\".", sczName);
+                }
+
+                // prepare next iteration
+                ReleaseNullObject(pNode);
+            }
+        }
+
+    LExit:
+        ReleaseObject(pNode);
+        ReleaseObject(pNodes);
+        ReleaseStr(sczName);
+        ReleaseStr(sczValue);
         return hr;
     }
 
@@ -1810,6 +1908,16 @@ private: // privates
 
 
     //
+    // UninitializeTaskbarButton - clean up the taskbar registration.
+    //
+    void UninitializeTaskbarButton()
+    {
+        m_fTaskbarButtonOK = FALSE;
+        ReleaseNullObject(m_pTaskbarList);
+    }
+
+
+    //
     // WndProc - standard windows message handler.
     //
     static LRESULT CALLBACK WndProc(
@@ -2044,7 +2152,7 @@ private: // privates
                                     hr = StrAllocString(&sczLicenseFilename, PathFile(sczLicenseFormatted), 0);
                                     if (SUCCEEDED(hr))
                                     {
-                                        hr = LocProbeForFile(sczLicenseDirectory, sczLicenseFilename, m_sczLanguage, &sczLicensePath);
+                                        hr = FindLocFile(sczLicenseDirectory, sczLicenseFilename, m_sczLanguage, &sczLicensePath);
                                         if (SUCCEEDED(hr))
                                         {
                                             hr = ThemeLoadRichEditFromFile(m_pTheme, WIXSTDBA_CONTROL_EULA_RICHEDIT, sczLicensePath, m_hModule);
@@ -2830,7 +2938,7 @@ private: // privates
                 hr = PathGetDirectory(sczLicensePath, &sczLicenseDirectory);
                 if (SUCCEEDED(hr))
                 {
-                    hr = LocProbeForFile(sczLicenseDirectory, PathFile(sczLicenseUrl), m_sczLanguage, &sczLicensePath);
+                    hr = FindLocFile(sczLicenseDirectory, PathFile(sczLicenseUrl), m_sczLanguage, &sczLicensePath);
                 }
             }
         }
@@ -3203,7 +3311,7 @@ private: // privates
         BalLog(BOOTSTRAPPER_LOG_LEVEL_STANDARD, "WIXSTDBA: LoadBootstrapperBAFunctions() - BA function DLL %ls", sczBafPath);
 #endif
 
-        m_hBAFModule = ::LoadLibraryW(sczBafPath);
+        m_hBAFModule = ::LoadLibraryExW(sczBafPath, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
         if (m_hBAFModule)
         {
             PFN_BOOTSTRAPPER_BA_FUNCTION_CREATE pfnBAFunctionCreate = reinterpret_cast<PFN_BOOTSTRAPPER_BA_FUNCTION_CREATE>(::GetProcAddress(m_hBAFModule, "CreateBootstrapperBAFunction"));
@@ -3462,6 +3570,8 @@ public:
 
         m_hBAFModule = NULL;
         m_pBAFunction = NULL;
+
+        m_fUseUILanguages = FALSE;
     }
 
 
@@ -3471,9 +3581,9 @@ public:
     ~CWixStandardBootstrapperApplication()
     {
         AssertSz(!::IsWindow(m_hWnd), "Window should have been destroyed before destructor.");
+        AssertSz(!m_pTaskbarList, "Taskbar should have been released before destructor.");
         AssertSz(!m_pTheme, "Theme should have been released before destructor.");
 
-        ReleaseObject(m_pTaskbarList);
         ReleaseDict(m_sdOverridableVariables);
         ReleaseDict(m_shPrereqSupportPackages);
         ReleaseMem(m_rgPrereqPackages);
@@ -3562,6 +3672,8 @@ private:
 
     HMODULE m_hBAFModule;
     IBootstrapperBAFunction* m_pBAFunction;
+
+    BOOL m_fUseUILanguages;
 };
 
 

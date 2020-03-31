@@ -899,17 +899,8 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
                 }
             }
 
-            // Reference CustomAction since nothing will happen without it
-            if (this.Core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CA is referenced
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "WixCloseApplications_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "WixCloseApplications");
-            }
+            // Reference custom action since nothing will happen without it
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "WixCloseApplications", Platforms.ARM | Platforms.ARM64);
 
             if (!this.Core.EncounteredError)
             {
@@ -1317,18 +1308,8 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             }
 
             // Reference ConfigureSmbInstall and ConfigureSmbUninstall since nothing will happen without it
-            if (this.Core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CA is referenced
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureSmbInstall_ARM");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureSmbUninstall_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureSmbInstall");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureSmbUninstall");
-            }
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "ConfigureSmbInstall", Platforms.ARM | Platforms.ARM64);
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "ConfigureSmbUninstall", Platforms.ARM | Platforms.ARM64);
 
             if (!this.Core.EncounteredError)
             {
@@ -1560,6 +1541,8 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             string target = null;
             string directoryId = null;
             string type = null;
+            string iconFile = null;
+            int iconIndex = 0;
 
             foreach (XmlAttribute attrib in node.Attributes)
             {
@@ -1581,6 +1564,12 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
                             break;
                         case "Type":
                             type = this.Core.GetAttributeValue(sourceLineNumbers, attrib);
+                            break;
+                        case "IconFile":
+                            iconFile = this.Core.GetAttributeValue(sourceLineNumbers, attrib);
+                            break;
+                        case "IconIndex":
+                            iconIndex = this.Core.GetAttributeIntegerValue(sourceLineNumbers, attrib, 0, int.MaxValue);
                             break;
                         default:
                             this.Core.UnexpectedAttribute(sourceLineNumbers, attrib);
@@ -1645,10 +1634,10 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             {
                 shortcutType = InternetShortcutType.Url;
             }
-                
+
             if (!this.Core.EncounteredError)
             {
-                CreateWixInternetShortcut(this.Core, sourceLineNumbers, componentId, directoryId, id, name, target, shortcutType);
+                CreateWixInternetShortcut(this.Core, sourceLineNumbers, componentId, directoryId, id, name, target, shortcutType, iconFile, iconIndex);
             }
         }
 
@@ -1662,7 +1651,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
         /// <param name="id">Identifier of shortcut.</param>
         /// <param name="name">Name of shortcut without extension.</param>
         /// <param name="target">Target URL of shortcut.</param>
-        public static void CreateWixInternetShortcut(CompilerCore core, SourceLineNumberCollection sourceLineNumbers, string componentId, string directoryId, string shortcutId, string name, string target, InternetShortcutType type)
+        public static void CreateWixInternetShortcut(CompilerCore core, SourceLineNumberCollection sourceLineNumbers, string componentId, string directoryId, string shortcutId, string name, string target, InternetShortcutType type, string iconFile, int iconIndex)
         {
             // add the appropriate extension based on type of shortcut
             name = String.Concat(name, InternetShortcutType.Url == type ? ".url" : ".lnk");
@@ -1674,18 +1663,11 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             row[3] = name;
             row[4] = target;
             row[5] = (int)type;
+            row[6] = iconFile;
+            row[7] = iconIndex;
 
             // Reference custom action because nothing will happen without it
-            if (core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CA is referenced
-                core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "WixSchedInternetShortcuts_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "WixSchedInternetShortcuts");
-            }
+            core.CreateCustomActionReference(sourceLineNumbers, "WixSchedInternetShortcuts", Platforms.ARM | Platforms.ARM64);
 
             // make sure we have a CreateFolder table so that the immediate CA can add temporary rows to handle installation and uninstallation
             core.EnsureTable(sourceLineNumbers, "CreateFolder");
@@ -1873,18 +1855,8 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             }
 
             // Reference InstallPerfCounterData and UninstallPerfCounterData since nothing will happen without them
-            if (this.Core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CAs are referenced
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "InstallPerfCounterData_ARM");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "UninstallPerfCounterData_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "InstallPerfCounterData");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "UninstallPerfCounterData");
-            }
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "InstallPerfCounterData", Platforms.ARM | Platforms.ARM64);
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "UninstallPerfCounterData", Platforms.ARM | Platforms.ARM64);
         }
 
         /// <summary>
@@ -2389,18 +2361,8 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             }
 
             // Reference ConfigurePerfmonInstall and ConfigurePerfmonUninstall since nothing will happen without them
-            if (this.Core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CAs are referenced
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigurePerfmonInstall_ARM");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigurePerfmonUninstall_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigurePerfmonInstall");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigurePerfmonUninstall");
-            }
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "ConfigurePerfmonInstall", Platforms.ARM | Platforms.ARM64);
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "ConfigurePerfmonUninstall", Platforms.ARM | Platforms.ARM64);
         }
 
 
@@ -2459,18 +2421,9 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
                 row[2] = resourceFileDirectory;
             }
 
-            if (this.Core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CAs are referenced
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigurePerfmonManifestRegister_ARM");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigurePerfmonManifestUnregister_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigurePerfmonManifestRegister");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigurePerfmonManifestUnregister");
-            }
+            // Reference custom actions since nothing will happen without them
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "ConfigurePerfmonManifestRegister", Platforms.ARM | Platforms.ARM64);
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "ConfigurePerfmonManifestUnregister", Platforms.ARM | Platforms.ARM64);
         }
 
         /// <summary>
@@ -2570,31 +2523,13 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
                 
             }
 
-            if (this.Core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CA is referenced
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureEventManifestRegister_ARM");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureEventManifestUnregister_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureEventManifestRegister");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureEventManifestUnregister");
-            }
+            // Reference custom actions since nothing will happen without them
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "ConfigureEventManifestRegister", Platforms.ARM | Platforms.ARM64);
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "ConfigureEventManifestUnregister", Platforms.ARM | Platforms.ARM64);
 
-            if (null != messageFile || null !=  parameterFile || null != resourceFile)
+            if (null != messageFile || null != parameterFile || null != resourceFile)
             {
-                if (this.Core.CurrentPlatform == Platform.ARM)
-                {
-                    // Ensure ARM version of the CA is referenced
-                    this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedXmlFile_ARM");
-                }
-                else
-                {
-                    // All other supported platforms use x86
-                    this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedXmlFile");
-                }
+                this.Core.CreateCustomActionReference(sourceLineNumbers, "SchedXmlFile", Platforms.ARM | Platforms.ARM64);
             }
         }
 
@@ -2717,19 +2652,13 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
                     }
                     else
                     {
-                        // Ensure SchedSecureObjects (x64) is referenced
-                        this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedSecureObjects_x64");
+                        this.Core.CreateCustomActionReference(sourceLineNumbers, "SchedSecureObjects", Platforms.ARM64 | Platforms.X64);
                     }
-                }
-                else if (this.Core.CurrentPlatform == Platform.ARM)
-                {
-                    // Ensure SchedSecureObjects (arm) is referenced
-                    this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedSecureObjects_ARM");
                 }
                 else
                 {
-                    // Ensure SchedSecureObjects (x86) is referenced, to handle this x86 component member
-                    this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedSecureObjects");
+                    // Ensure 32-bit SchedSecureObjects is referenced, to handle this 32-bit component
+                    this.Core.CreateCustomActionReference(sourceLineNumbers, "SchedSecureObjects", Platforms.ARM);
                 }
 
                 Row row = this.Core.CreateRow(sourceLineNumbers, "SecureObjects");
@@ -3148,7 +3077,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
                 row[3] = on;
 
                 this.Core.EnsureTable(sourceLineNumbers, "RemoveFile");
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "WixRemoveFoldersEx");
+                this.Core.CreateCustomActionReference(sourceLineNumbers, "WixRemoveFoldersEx", Platforms.ARM64);
             }
         }
         
@@ -3231,16 +3160,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             if (!this.Core.EncounteredError)
             {
                 // Add a reference to the WixRegisterRestartResources custom action since nothing will happen without it.
-                if (this.Core.CurrentPlatform == Platform.ARM)
-                {
-                    // Ensure ARM version of the CA is referenced
-                    this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "WixRegisterRestartResources_ARM");
-                }
-                else
-                {
-                    // All other supported platforms use x86
-                    this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "WixRegisterRestartResources");
-                }
+                this.Core.CreateCustomActionReference(sourceLineNumbers, "WixRegisterRestartResources", Platforms.ARM | Platforms.ARM64);
 
                 Row row = this.Core.CreateRow(sourceLineNumbers, "WixRestartResource");
                 row[0] = id;
@@ -3344,16 +3264,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             }
 
             // Reference SchedServiceConfig since nothing will happen without it
-            if (this.Core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CA is referenced
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedServiceConfig_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedServiceConfig");
-            }
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "SchedServiceConfig", Platforms.ARM | Platforms.ARM64);
 
             if (!this.Core.EncounteredError)
             {
@@ -3582,17 +3493,8 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
 
             if (null != componentId)
             {
-                // Reference ConfigureIIs since nothing will happen without it
-                if (this.Core.CurrentPlatform == Platform.ARM)
-                {
-                    // Ensure ARM version of the CA is referenced
-                    this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureUsers_ARM");
-                }
-                else
-                {
-                    // All other supported platforms use x86
-                    this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "ConfigureUsers");
-                }
+                // Reference ConfigureUsers since nothing will happen without it
+                this.Core.CreateCustomActionReference(sourceLineNumbers, "ConfigureUsers", Platforms.ARM | Platforms.ARM64);
             }
 
             if (!this.Core.EncounteredError)
@@ -3759,16 +3661,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             }
 
             // Reference SchedXmlFile since nothing will happen without it
-            if (this.Core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CA is referenced
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedXmlFile_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedXmlFile");
-            }
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "SchedXmlFile", Platforms.ARM | Platforms.ARM64);
         }
 
         /// <summary>
@@ -4001,16 +3894,7 @@ namespace Microsoft.Tools.WindowsInstallerXml.Extensions
             }
 
             // Reference SchedXmlConfig since nothing will happen without it
-            if (this.Core.CurrentPlatform == Platform.ARM)
-            {
-                // Ensure ARM version of the CA is referenced
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedXmlConfig_ARM");
-            }
-            else
-            {
-                // All other supported platforms use x86
-                this.Core.CreateWixSimpleReferenceRow(sourceLineNumbers, "CustomAction", "SchedXmlConfig");
-            }
+            this.Core.CreateCustomActionReference(sourceLineNumbers, "SchedXmlConfig", Platforms.ARM | Platforms.ARM64);
         }
 
         /// <summary>
